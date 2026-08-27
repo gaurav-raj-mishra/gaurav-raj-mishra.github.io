@@ -1,7 +1,7 @@
 ---
 title: Medicine - An Imprecise Science
 date: 2026-08-27
-description: ""
+description: "A phrase that stuck from my first day in the wards"
 tags:
   - medicine
   - personal-reflections
