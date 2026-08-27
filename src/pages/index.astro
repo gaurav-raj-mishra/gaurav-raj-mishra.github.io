@@ -1,0 +1,242 @@
+---
+import Base from "../layouts/Base.astro";
+import ScatterHero from "../components/ScatterHero.tsx";
+import Scramble from "../components/Scramble.tsx";
+import { ICONS } from "../components/icons";
+import { SITE, SOCIALS } from "../site.config";
+import { tname } from "../lib/tname";
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .slice(0, 3);
+
+const dirOf = (id: string) =>
+  id.includes("/") ? id.split("/").slice(0, -1).join("/") : "";
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-GB", { year: "numeric", month: "short", day: "2-digit" });
+---
+
+<Base>
+  <!-- ── hero: the name collides with the figure ──────────── -->
+  <section class="wrap rail-grid hero">
+    <p class="margin-note rise" style="animation-delay: 0.05s">introduction</p>
+    <div>
+      <h1 class="hero-name rise" style="animation-delay: 0.15s">
+        {SITE.name.split(" ").slice(0, -1).join(" ")}<br />{SITE.name.split(" ").at(-1)}
+      </h1>
+      <div class="hero-lower">
+        <div class="hero-copy rise" style="animation-delay: 0.45s">
+          <p class="hero-tagline">
+            <Scramble client:load text={SITE.tagline} delay={900} speed={38} />
+          </p>
+          <p class="hero-sub">
+            Medical student · aspiring radiologist · data scientist (R &amp; Python) · chronic reader.
+            I write about medicine, analysis, books, and whatever else survives a second draft —
+            collected on <a class="link-fit" href="/blog/">the blog</a>.
+          </p>
+        </div>
+        <div class="hero-chart rise" style="animation-delay: 0.3s">
+          <ScatterHero client:load />
+          <p class="caption chart-caption">
+            n = 42 observations. logistic fit, no confidence interval, plenty of confidence.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap"><hr class="axis-rule" /></div>
+
+  <!-- ── about ────────────────────────────────────────────── -->
+  <section class="wrap rail-grid">
+    <p class="margin-note">about</p>
+    <div>
+      {SITE.about.map((para) => <p class="about-para">{para}</p>)}
+    </div>
+  </section>
+
+  <div class="wrap"><hr class="axis-rule" /></div>
+
+  <!-- ── let's connect ────────────────────────────────────── -->
+  <section class="wrap rail-grid">
+    <p class="margin-note">correspondence</p>
+    <div>
+      <h2 class="connect-heading">Let&rsquo;s connect</h2>
+      <div class="connect-row">
+        {SOCIALS.map((s) => (
+          <a
+            class="connect-btn"
+            href={s.url}
+            target={s.url.startsWith("mailto:") ? undefined : "_blank"}
+            rel="noopener"
+            aria-label={s.label}
+            title={s.label}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d={ICONS[s.icon]} fill="currentColor" />
+            </svg>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap"><hr class="axis-rule" /></div>
+
+  <!-- ── recent writing ───────────────────────────────────── -->
+  <section class="wrap rail-grid">
+    <p class="margin-note">recent writing</p>
+    <div>
+      {posts.length === 0 ? (
+        <p class="about-para">Nothing published yet — first post coming soon.</p>
+      ) : (
+        <ul class="toc">
+          {posts.map((post) => (
+            <li class="toc-row">
+              <a href={`/blog/${post.id}/`}>
+                <span class="toc-line">
+                  <span class="toc-title" transition:name={tname(post.id)}>
+                    {dirOf(post.id) && <span class="toc-dir">{dirOf(post.id)}/</span>}
+                    {post.data.title}
+                  </span>
+                  <span class="toc-leader"></span>
+                  <span class="toc-date">{fmt(post.data.date)}</span>
+                </span>
+                {post.data.description && <p class="toc-desc">{post.data.description}</p>}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p style="margin-top: 1.5rem">
+        <a class="link-fit" href="/blog/">All posts →</a>
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding-top: 3.5rem;
+    padding-bottom: 1rem;
+  }
+
+  .hero-name {
+    font-size: clamp(3.4rem, 9.5vw, 7.2rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    /* same token the chart's outlier point is drawn with */
+    color: var(--accent-deep);
+    position: relative;
+    z-index: 2;
+    margin: 0;
+  }
+
+  .hero-lower {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: 2.75rem;
+    align-items: start;
+  }
+
+  .hero-copy { padding-top: 2.2rem; }
+
+  .hero-tagline {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--accent);
+    margin: 0 0 1rem;
+    min-height: 1.5em;
+  }
+
+  .hero-sub {
+    color: var(--ink-soft);
+    font-size: 1.08rem;
+    margin: 0;
+  }
+
+  /* The figure tucks up and under the name — deliberate collision. */
+  .hero-chart {
+    margin-top: calc(-1 * clamp(1.6rem, 4.5vw, 3.4rem));
+    position: relative;
+    z-index: 1;
+    border: 1px solid var(--rule);
+    background: var(--bg-raised);
+    padding: 0.75rem 0.75rem 0;
+  }
+
+  .hero-chart :global(canvas) { height: 280px !important; }
+
+  .chart-caption {
+    margin: 0.4rem 0.35rem 0.6rem;
+  }
+
+  .about-para {
+    max-width: 38rem;
+    color: var(--ink-soft);
+    margin: 0 0 1.1em;
+  }
+
+  .about-para:first-of-type::first-letter {
+    font-family: var(--font-display);
+    font-size: 3.1em;
+    float: left;
+    line-height: 0.85;
+    padding-right: 0.09em;
+    color: var(--accent);
+  }
+
+  .connect-heading {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin-bottom: 1.6rem;
+  }
+
+  .connect-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+  }
+
+  .connect-btn {
+    display: grid;
+    place-items: center;
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 50%;
+    border: 1px solid var(--rule);
+    background: var(--bg-raised);
+    color: var(--ink-soft);
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease,
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+  }
+
+  .connect-btn svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .connect-btn:hover,
+  .connect-btn:focus-visible {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+    transform: translateY(-4px);
+    box-shadow: 0 6px 16px var(--accent-soft);
+  }
+
+  @media (max-width: 860px) {
+    .hero { padding-top: 2.5rem; }
+    .hero-lower { grid-template-columns: 1fr; gap: 1.5rem; }
+    .hero-copy { padding-top: 1.2rem; }
+    /* no overlap in a single column */
+    .hero-chart { margin-top: 0.5rem; }
+    .hero-chart :global(canvas) { height: 230px !important; }
+  }
+</style>

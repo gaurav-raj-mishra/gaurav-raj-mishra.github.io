@@ -1,0 +1,98 @@
+---
+import Base from "../../layouts/Base.astro";
+import { tname } from "../../lib/tname";
+import { getCollection, render } from "astro:content";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("blog", ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: post.id },
+    props: { post },
+  }));
+}
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+// Folder path inside src/content/blog/, if the post lives in one.
+const dir = post.id.includes("/")
+  ? post.id.split("/").slice(0, -1).join("/")
+  : "";
+
+const fmt = post.data.date.toLocaleDateString("en-GB", {
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+});
+
+const words = post.body?.split(/\s+/).length ?? 0;
+const minutes = Math.max(1, Math.round(words / 220));
+---
+
+<Base title={post.data.title} description={post.data.description}>
+  <article class="wrap rail-grid" style="padding-top: 3.5rem">
+    <p class="margin-note post-meta">
+      <span>{fmt}</span>
+      <span>{minutes} min read</span>
+      {dir && <span>{dir}/</span>}
+    </p>
+    <div class="post-body">
+      <header class="post-header">
+        <h1 class="post-heading" transition:name={tname(post.id)}>{post.data.title}</h1>
+        {post.data.description && <p class="post-standfirst">{post.data.description}</p>}
+        {post.data.tags.length > 0 && (
+          <div class="post-tags">
+            {post.data.tags.map((t) => <span class="tag-chip">{t}</span>)}
+          </div>
+        )}
+      </header>
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      <hr class="axis-rule" style="margin: 3.5rem 0 2rem" />
+      <p class="caption">
+        end of observation · <a href="/blog/" style="color: var(--ink-faint); text-decoration: underline dotted">← back to all posts</a>
+      </p>
+    </div>
+  </article>
+</Base>
+
+<style>
+  .post-body { max-width: 44rem; }
+
+  .post-meta span { display: block; margin-bottom: 0.35rem; }
+
+  .post-header { margin-bottom: 2.8rem; }
+
+  .post-heading {
+    font-size: clamp(2rem, 5vw, 3rem);
+  }
+
+  .post-standfirst {
+    font-size: 1.25rem;
+    font-style: italic;
+    color: var(--ink-soft);
+    margin: 1rem 0 0;
+    line-height: 1.5;
+  }
+
+  .post-tags {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 860px) {
+    .post-meta span {
+      display: inline;
+      margin: 0;
+    }
+    .post-meta span + span::before {
+      content: "· ";
+      margin: 0 0.25em;
+    }
+  }
+</style>

@@ -1,0 +1,188 @@
+---
+import Base from "../../layouts/Base.astro";
+import { tname } from "../../lib/tname";
+import { getCollection } from "astro:content";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf()
+);
+
+const allTags = [...new Set(posts.flatMap((p) => p.data.tags))].sort();
+
+// A post's folder path inside src/content/blog/, e.g. "analysis" or
+// "analysis/sports". Posts at the top level have no folder ("").
+const dirOf = (id: string) =>
+  id.includes("/") ? id.split("/").slice(0, -1).join("/") : "";
+
+// Every folder that appears, plus its ancestors, so filtering by a
+// parent folder also shows posts in its subfolders.
+const allDirs = [
+  ...new Set(
+    posts.flatMap((p) => {
+      const dir = dirOf(p.id);
+      if (!dir) return [];
+      const parts = dir.split("/");
+      return parts.map((_, i) => parts.slice(0, i + 1).join("/"));
+    })
+  ),
+].sort();
+
+// Group by year for the index
+const byYear = new Map<number, typeof posts>();
+for (const post of posts) {
+  const y = post.data.date.getFullYear();
+  if (!byYear.has(y)) byYear.set(y, []);
+  byYear.get(y)!.push(post);
+}
+const years = [...byYear.keys()].sort((a, b) => b - a);
+
+const fmt = (d: Date) =>
+  d.toLocaleDateString("en-GB", { month: "short", day: "2-digit" });
+---
+
+<Base title="Blog" description="Essays, analysis notebooks, and notes by Gaurav Raj Mishra.">
+  <section class="wrap" style="padding-top: 3.5rem">
+    <div class="rail-grid">
+      <p class="margin-note">the blog</p>
+      <div>
+        <h1 style="font-size: clamp(2.2rem, 5vw, 3.4rem)">Writing</h1>
+        <p style="color: var(--ink-soft); max-width: 36rem; margin-top: 1rem">
+          Essays, analysis notebooks, book notes — {posts.length}
+          {posts.length === 1 ? " observation" : " observations"} so far.
+        </p>
+
+        <div class="filters">
+          {allDirs.length > 0 && (
+            <div class="filter-bar" data-filter="dir">
+              <span class="filter-name">dir</span>
+              <button class="tag-chip" data-value="" aria-pressed="true">all</button>
+              {allDirs.map((dir) => (
+                <button class="tag-chip" data-value={dir} aria-pressed="false">{dir}/</button>
+              ))}
+            </div>
+          )}
+          {allTags.length > 0 && (
+            <div class="filter-bar" data-filter="tag">
+              <span class="filter-name">tag</span>
+              <button class="tag-chip" data-value="" aria-pressed="true">all</button>
+              {allTags.map((tag) => (
+                <button class="tag-chip" data-value={tag} aria-pressed="false">{tag}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+
+    {years.map((year) => (
+      <div class="rail-grid year-block" data-year-group>
+        <p class="margin-note">{year}</p>
+        <ul class="toc">
+          {byYear.get(year)!.map((post) => (
+            <li
+              class="toc-row"
+              data-tags={post.data.tags.join(",")}
+              data-dir={dirOf(post.id)}
+            >
+              <a href={`/blog/${post.id}/`}>
+                <span class="toc-line">
+                  <span class="toc-title" transition:name={tname(post.id)}>
+                    {dirOf(post.id) && <span class="toc-dir">{dirOf(post.id)}/</span>}
+                    {post.data.title}
+                  </span>
+                  <span class="toc-leader"></span>
+                  <span class="toc-date">{fmt(post.data.date)}</span>
+                </span>
+                {post.data.description && <p class="toc-desc">{post.data.description}</p>}
+                {post.data.tags.length > 0 && (
+                  <span class="toc-tags">
+                    {post.data.tags.map((t) => <span class="tag-chip">{t}</span>)}
+                  </span>
+                )}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+
+    <p class="caption" id="empty-note" hidden style="margin-top: 2rem">
+      no observations match this filter — try another combination.
+    </p>
+  </section>
+</Base>
+
+<script>
+  // Re-runs after every view transition, not just the first load.
+  const init = () => {
+    const bars = [...document.querySelectorAll<HTMLElement>(".filter-bar[data-filter]")];
+    if (bars.length === 0) return;
+    const rows = [...document.querySelectorAll<HTMLElement>(".toc-row[data-tags]")];
+    const groups = [...document.querySelectorAll<HTMLElement>("[data-year-group]")];
+    const emptyNote = document.getElementById("empty-note");
+
+    // Active filter per dimension; "" means "all".
+    const active: Record<string, string> = { dir: "", tag: "" };
+
+    const matches = (row: HTMLElement) => {
+      const dir = row.dataset.dir ?? "";
+      const tags = (row.dataset.tags ?? "").split(",");
+      const dirOk =
+        !active.dir || dir === active.dir || dir.startsWith(active.dir + "/");
+      const tagOk = !active.tag || tags.includes(active.tag);
+      return dirOk && tagOk;
+    };
+
+    const apply = () => {
+      let shown = 0;
+      for (const row of rows) {
+        const show = matches(row);
+        row.hidden = !show;
+        if (show) shown++;
+      }
+      for (const group of groups) {
+        const any = [...group.querySelectorAll<HTMLElement>(".toc-row")].some((r) => !r.hidden);
+        group.hidden = !any;
+      }
+      if (emptyNote) emptyNote.hidden = shown > 0;
+    };
+
+    for (const bar of bars) {
+      const dim = bar.dataset.filter!;
+      bar.addEventListener("click", (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLElement>("button.tag-chip");
+        if (!btn) return;
+        active[dim] = btn.dataset.value ?? "";
+        bar.querySelectorAll("button.tag-chip").forEach((b) =>
+          b.setAttribute("aria-pressed", String(b === btn))
+        );
+        apply();
+      });
+    }
+  };
+
+  document.addEventListener("astro:page-load", init);
+</script>
+
+<style>
+  .filters {
+    display: grid;
+    gap: 0.55rem;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .filters .filter-bar { margin: 0; }
+
+  .filter-name {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    min-width: 2.2rem;
+  }
+
+  .year-block {
+    margin-top: 2.25rem;
+  }
+</style>
